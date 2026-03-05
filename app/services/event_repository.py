@@ -39,7 +39,7 @@ async def list_events(
         base = base.where(Event.event_date <= to_date)
         count_stmt = count_stmt.where(Event.event_date <= to_date)
 
-    total = (await session.execute(count_stmt)).scalar_one()
+    total = (await session.execute(count_stmt)).scalar() or 0
 
     base = base.order_by(Event.event_date.asc(), Event.symbol.asc())
     base = base.limit(limit).offset(offset)
@@ -52,7 +52,7 @@ async def get_event_by_id(session: AsyncSession, event_id: UUID) -> Event | None
     """Fetch a single event by UUID."""
     stmt = select(Event).where(Event.id == event_id)
     result = await session.execute(stmt)
-    return result.scalar_one_or_none()
+    return result.scalars().one_or_none()
 
 
 async def upsert_events(session: AsyncSession, normalized_list: list[dict]) -> tuple[int, int]:
@@ -68,7 +68,7 @@ async def upsert_events(session: AsyncSession, normalized_list: list[dict]) -> t
             Event.event_type == n["event_type"],
             Event.event_date == n["event_date"],
         )
-        existing = (await session.execute(stmt)).scalar_one_or_none()
+        existing = (await session.execute(stmt)).scalars().one_or_none()
         if existing:
             existing.title = n["title"]
             existing.details = n.get("details") or {}

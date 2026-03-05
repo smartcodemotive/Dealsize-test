@@ -112,6 +112,51 @@ poetry install
 poetry run uvicorn app.main:app --reload --port 8000
 ```
 
+## Setup (detailed)
+
+1. **Start dependencies** (PostgreSQL and Redis):
+   ```bash
+   docker-compose up -d
+   ```
+
+2. **Configure environment**:
+   ```bash
+   cp .env.example .env
+   ```
+   Edit `.env` if your DB/Redis ports differ (default: Postgres on 5433, Redis on 6380).
+
+3. **Install and run**:
+   ```bash
+   poetry install
+   poetry run uvicorn app.main:app --reload --port 8000
+   ```
+
+4. **Verify**: Open http://localhost:8000/docs for Swagger, or:
+   - `GET http://localhost:8000/api/v1/health` — health check
+   - `POST http://localhost:8000/api/v1/events/sync` with `{"symbols": ["AAPL", "MSFT"], "force": true}` — sync events
+   - `GET http://localhost:8000/api/v1/events` — list events
+
+**Tests** (Postgres and Redis should be running for full integration):
+```bash
+poetry run pytest tests/ -v
+```
+
+---
+
+## Architecture notes
+
+- **Data model**: Two tables — `events` (unified events) and `symbol_syncs` (last sync time per symbol). Events are deduplicated by natural key `(symbol, event_type, event_date)` so the same real-world event from different providers is stored once. Unique constraint and index support fast upserts and filtered queries.
+
+- **Normalization**: Provider A (flat, `ticker`/`type`/`date`) and Provider B (nested, `instrument.symbol`/`event.category`/`event.scheduled_at`) are mapped to a single schema. Provider B categories are mapped as: `earnings_release` → `earnings`, `dividend_payment` → `dividend`, `stock_split` → `split`, `economic_indicator` → `economic`.
+
+- **Sync**: `POST /api/v1/events/sync` fetches from both providers (Provider B pagination is followed until `has_next` is false), normalizes, deduplicates in memory by `(symbol, event_type, event_date)`, then upserts into Postgres. With `force: false`, symbols synced in the last hour are skipped. Provider rate limits and errors are caught; sync continues and errors are returned in the response (`status: "partial"` if any errors).
+
+- **Caching**: List and single-event GETs are cached in Redis (key from query params for list, event id for single). Responses set `X-Cache: HIT` or `X-Cache: MISS` accordingly. TTLs: list 5 min, single event 10 min.
+
+- **Assumptions**: (1) Event “identity” is symbol + type + date; (2) Sync marks all requested symbols as synced even if one provider fails; (3) Health is “degraded” if Redis or DB is down but the service still responds.
+
+---
+
 ## Questions?
 
 If something's unclear, document your assumptions and move on.
