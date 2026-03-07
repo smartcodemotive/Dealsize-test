@@ -3,7 +3,7 @@
 from fastapi import APIRouter
 from sqlalchemy import text
 
-from app.database import engine
+from app.database import _get_engine
 from app.schemas import HealthResponse
 from app.services.cache import redis_ping
 
@@ -16,7 +16,7 @@ async def health():
     redis_ok = await redis_ping()
     db_ok = False
     try:
-        async with engine.connect() as conn:
+        async with _get_engine().connect() as conn:
             await conn.execute(text("SELECT 1"))
             db_ok = True
     except Exception:

@@ -103,16 +103,13 @@ Design your schema considering:
 2. Your README with setup instructions and architecture notes
 3. Tests for core logic
 
+## Prerequisites
+
+- **Python 3.10+**
+- **Poetry** (dependency management)
+- **Docker & Docker Compose** (for PostgreSQL and Redis)
+
 ## Setup
-
-```bash
-docker-compose up -d
-cp .env.example .env
-poetry install
-poetry run uvicorn app.main:app --reload --port 8000
-```
-
-## Setup (detailed)
 
 1. **Start dependencies** (PostgreSQL and Redis):
    ```bash
@@ -123,7 +120,7 @@ poetry run uvicorn app.main:app --reload --port 8000
    ```bash
    cp .env.example .env
    ```
-   Edit `.env` if your DB/Redis ports differ (default: Postgres on 5433, Redis on 6380).
+   Edit `.env` if your DB/Redis ports differ (default: Postgres on **5433**, Redis on **6380**).
 
 3. **Install and run**:
    ```bash
@@ -136,9 +133,20 @@ poetry run uvicorn app.main:app --reload --port 8000
    - `POST http://localhost:8000/api/v1/events/sync` with `{"symbols": ["AAPL", "MSFT"], "force": true}` — sync events
    - `GET http://localhost:8000/api/v1/events` — list events
 
-**Tests** (Postgres and Redis should be running for full integration):
+The database (tables) is created automatically on first startup via the app lifespan.
+
+## Tests
+
+PostgreSQL and Redis must be running (e.g. `docker-compose up -d`) for the full test suite.
+
 ```bash
 poetry run pytest tests/ -v
+```
+
+To run only unit tests (normalizers), without hitting the API/DB:
+
+```bash
+poetry run pytest tests/test_normalizers.py -v
 ```
 
 ---
